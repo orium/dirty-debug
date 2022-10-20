@@ -8,3 +8,15 @@
 #![warn(clippy::pedantic)]
 // Note: If you change this remember to update `README.md`.  To do so run `./tools/update-readme.sh`.
 //! WIP
+
+pub fn foo() {
+    println!("here")
+}
+
+#[cfg(test)]
+mod test {
+    #[test]
+    fn test_foo() {
+        super::foo();
+    }
+}

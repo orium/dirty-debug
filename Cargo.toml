@@ -31,7 +31,7 @@ include = [
 ]
 
 [badges]
-codecov = { repository = "orium/dirty-debug", branch = "master", service = "github" }
+codecov = { repository = "orium/dirty-debug", branch = "main", service = "github" }
 
 [features]
 fatal-warnings = []

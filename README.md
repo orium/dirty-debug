@@ -1,5 +1,5 @@
 [![Build Status](https://github.com/orium/dirty-debug/workflows/CI/badge.svg)](https://github.com/orium/dirty-debug/actions?query=workflow%3ACI)
-[![Code Coverage](https://codecov.io/gh/orium/dirty-debug/branch/master/graph/badge.svg)](https://codecov.io/gh/orium/dirty-debug)
+[![Code Coverage](https://codecov.io/gh/orium/dirty-debug/branch/main/graph/badge.svg)](https://codecov.io/gh/orium/dirty-debug)
 [![Dependency status](https://deps.rs/repo/github/orium/dirty-debug/status.svg)](https://deps.rs/repo/github/orium/dirty-debug)
 [![crates.io](https://img.shields.io/crates/v/dirty-debug.svg)](https://crates.io/crates/dirty-debug)
 [![Downloads](https://img.shields.io/crates/d/dirty-debug.svg)](https://crates.io/crates/dirty-debug)
