@@ -1,0 +1,40 @@
+[package]
+name = "dirty-debug"
+description = "Quick and dirty debugging"
+version = "0.0.0-pre"
+authors = ["Diogo Sousa <diogogsousa@gmail.com>"]
+
+edition = "2021"
+
+homepage = "https://github.com/orium/dirty-debug"
+repository = "https://github.com/orium/dirty-debug"
+documentation = "https://docs.rs/dirty-debug"
+readme = "README.md"
+
+keywords = [
+    "debug",
+]
+
+categories = [
+    "development-tools",
+]
+
+license = "MPL-2.0"
+
+# What to include when packaging.
+include = [
+    "/src/**/*.rs",
+    "/Cargo.toml",
+    "/LICENSE.md",
+    "/README.md",
+    "/release-notes.md",
+]
+
+[badges]
+codecov = { repository = "orium/dirty-debug", branch = "master", service = "github" }
+
+[features]
+fatal-warnings = []
+
+[dependencies]
+
