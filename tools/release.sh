@@ -80,5 +80,5 @@ git commit -am "Bump to version $next_version."
 
 echo "Check if everything is alright.  If so do:"
 echo
-echo "  git checkout \"v${release_version}\" && cargo publish && git checkout main && git push --follow-tags"
+echo "  git push --atomic origin main v${release_version} && git checkout \"v${release_version}\" && cargo publish && git checkout main"
 echo
