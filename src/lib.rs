@@ -6,15 +6,17 @@
 #![cfg_attr(feature = "fatal-warnings", deny(warnings))]
 #![deny(clippy::correctness)]
 #![warn(clippy::pedantic)]
-// Note: If you change this remember to update `README.md`.  To do so run `./tools/update-readme.sh`.
-//! `dirty-debug` offers a quick and easy way to log message to a file for debugging.
+#![allow(clippy::inline_always)]
+// Note: If you change this remember to update `README.md`.  To do so run `cargo rdme`.
+//! `dirty-debug` offers a quick and easy way to log message to a file (or tcp endpoint) for
+//! temporary debugging.
 //!
 //! A simple but powerful way to debug a program is to printing some messages to understand your
 //! code’s behavior.  However, sometimes you don’t have access to the `stdout`/`stderr` streams (for
 //! instance, when your code is loaded and executed by another program).  `dirty-debug` offers you a
 //! simple, no-setup, way to log to a file:
 //!
-//! ```rust
+//! ```rust,no_run
 //! # use dirty_debug::ddbg;
 //! #
 //! # let state = 42;
@@ -27,6 +29,25 @@
 //!
 //! Note that this is not meant to be a normal form of logging: `dirty-debug` should only be used
 //! temporarily during your debug session and discarded after that.
+//!
+//! # Logging to a TCP endpoint
+//!
+//! You can also use `dirty-debug` to log to a TCP endpoint instead of a file:
+//!
+//! ```rust,no_run
+//! # use dirty_debug::ddbg;
+//! #
+//! # let state = 42;
+//! #
+//! ddbg!("tcp://192.168.1.42:12345", "Hello!");
+//! ```
+//!
+//! Probably the easiest way to listen to a TCP endpoint in the target computer is by using netcat:
+//!
+//! ```console
+//! $ ncat -l 12345
+//! [src/lib.rs:123] Hello!
+//! ```
 
 use dashmap::DashMap;
 use once_cell::sync::Lazy;
@@ -34,15 +55,29 @@ use std::fmt;
 use std::fs::File;
 use std::io;
 use std::io::Write;
+use std::net::TcpStream;
+use std::str::FromStr;
 
 static DIRTY_FILES: Lazy<DashMap<&str, File>> = Lazy::new(DashMap::new);
 
-/// Writes a message to the given file.  The message will be formatted:
+static DIRTY_TCP: Lazy<DashMap<(&str, u16), TcpStream>> = Lazy::new(DashMap::new);
+
+/// Writes a message to the given location.  The message will be formatted.
 ///
-/// ```
+/// # Example — Logging to a file
+///
+/// ```rust,no_run
 /// # use dirty_debug::ddbg;
 /// #
 /// ddbg!("/tmp/log", "Hello {}!", "world");
+/// ```
+///
+/// # Example — Logging to a tcp endpoint
+///
+/// ```rust,no_run
+/// # use dirty_debug::ddbg;
+/// #
+/// ddbg!("tcp://192.168.1.42:12345", "Hello {}!", "world");
 /// ```
 #[macro_export]
 macro_rules! ddbg {
@@ -60,6 +95,17 @@ macro_rules! ddbg {
     }};
 }
 
+#[inline(always)]
+fn dirty_log_str_writer(writer: &mut impl Write, args: fmt::Arguments<'_>) -> io::Result<()> {
+    writer.write_fmt(args)?;
+    writer.write_all("\n".as_bytes())?;
+
+    // Performance won't be great if we flush all the time, but we don't want to lose log lines if
+    // the program crashes.
+    writer.flush()
+}
+
+#[inline(always)]
 fn dirty_log_str_file(filepath: &'static str, args: fmt::Arguments<'_>) -> io::Result<()> {
     let mut entry = DIRTY_FILES.entry(filepath).or_try_insert_with(move || {
         let file = File::options().create(true).append(true).open(filepath)?;
@@ -70,21 +116,45 @@ fn dirty_log_str_file(filepath: &'static str, args: fmt::Arguments<'_>) -> io::R
     // to write to the same line.
     let file = entry.value_mut();
 
-    file.write_fmt(args)?;
-    file.write_all("\n".as_bytes())?;
+    dirty_log_str_writer(file, args)
+}
 
-    // Performance won't be great if we flush all the time, but we don't want to lose log lines if
-    // the program crashes.
-    file.flush()
+#[inline(always)]
+fn dirty_log_str_tcp(
+    hostname: &'static str,
+    port: u16,
+    args: fmt::Arguments<'_>,
+) -> io::Result<()> {
+    let mut entry = DIRTY_TCP.entry((hostname, port)).or_try_insert_with(move || {
+        let stream = TcpStream::connect((hostname, port))?;
+        Ok::<_, io::Error>(stream)
+    })?;
+
+    // `DashMap` ensures we have exclusive access to this stream, so there is no way for two threads
+    // to write to the same line.
+    let stream = entry.value_mut();
+
+    dirty_log_str_writer(stream, args)
 }
 
 /// Logs the given message.  The `uri` is a string with a static lifetime, so that it can be stored
 /// without cloning, to avoid extra memory allocations.
 #[doc(hidden)]
 pub fn dirty_log_message(uri: &'static str, args: fmt::Arguments<'_>) {
-    let filepath = uri.strip_prefix("file://").unwrap_or(uri);
+    let result = if let Some(authority) = uri.strip_prefix("tcp://") {
+        let (hostname, port) = authority.rsplit_once(':').expect("invalid tcp uri");
 
-    let result = dirty_log_str_file(filepath, args);
+        // Ensure sure we can handle IPv6 uris like `tcp://[::1]:1234`:
+        let hostname =
+            hostname.strip_prefix('[').and_then(|h| h.strip_suffix(']')).unwrap_or(hostname);
+        let port = u16::from_str(port).expect("invalid port number");
+
+        dirty_log_str_tcp(hostname, port, args)
+    } else {
+        let filepath = uri.strip_prefix("file://").unwrap_or(uri);
+
+        dirty_log_str_file(filepath, args)
+    };
 
     if let Err(e) = result {
         panic!("failed to log to \"{}\": {}", uri, e);
@@ -95,12 +165,29 @@ pub fn dirty_log_message(uri: &'static str, args: fmt::Arguments<'_>) {
 mod test {
     use indoc::indoc;
     use std::collections::HashSet;
+    use std::io::Read;
+    use std::net::TcpStream;
+    use std::thread::JoinHandle;
 
     struct TempFilepath {
         filepath: String,
     }
 
     impl TempFilepath {
+        fn new() -> TempFilepath {
+            use rand::distributions::Alphanumeric;
+            use rand::thread_rng;
+            use rand::Rng;
+
+            let dir = std::env::temp_dir();
+            let filename: String =
+                thread_rng().sample_iter(&Alphanumeric).take(30).map(char::from).collect();
+
+            let filepath = dir.join(format!("dirty_debug_test_{}", filename)).display().to_string();
+
+            TempFilepath { filepath }
+        }
+
         fn read(&self) -> String {
             std::fs::read_to_string(&self.filepath).unwrap()
         }
@@ -112,18 +199,45 @@ mod test {
         }
     }
 
-    fn temp_filepath() -> TempFilepath {
-        use rand::distributions::Alphanumeric;
-        use rand::thread_rng;
-        use rand::Rng;
+    struct Listener {
+        thread_handler: JoinHandle<String>,
+        port: u16,
+    }
 
-        let dir = std::env::temp_dir();
-        let filename: String =
-            thread_rng().sample_iter(&Alphanumeric).take(30).map(char::from).collect();
+    impl Listener {
+        fn new() -> Listener {
+            Listener::new_with_bind("127.0.0.1")
+        }
 
-        let filepath = dir.join(format!("dirty_debug_test_{}", filename)).display().to_string();
+        fn new_with_bind(bind: &str) -> Listener {
+            use std::net::TcpListener;
+            use std::thread::spawn;
 
-        TempFilepath { filepath }
+            let listener: TcpListener =
+                TcpListener::bind(format!("{}:0", bind)).expect("fail to bind");
+
+            let port: u16 = listener.local_addr().unwrap().port();
+
+            let thread_handler = spawn(move || {
+                let mut content: String = String::with_capacity(1024);
+                let mut stream: TcpStream = listener.incoming().next().unwrap().unwrap();
+
+                while !content.contains("==EOF==") {
+                    let mut buffer: [u8; 8] = [0; 8];
+                    let read = stream.read(&mut buffer).unwrap();
+                    let s = std::str::from_utf8(&buffer[0..read]).unwrap();
+                    content.push_str(s);
+                }
+
+                content
+            });
+
+            Listener { thread_handler, port }
+        }
+
+        fn content(self) -> String {
+            self.thread_handler.join().unwrap()
+        }
     }
 
     /// Creates a `&'static str` out of any string.  This is important because the uri in `ddbg!()`
@@ -136,8 +250,7 @@ mod test {
         }};
     }
 
-    fn read_log_strip_source_info(temp_file: &TempFilepath) -> String {
-        let log = temp_file.read();
+    fn read_log_strip_source_info(log: String) -> String {
         let mut stripped_log = String::with_capacity(log.len());
 
         for line in log.lines() {
@@ -153,15 +266,15 @@ mod test {
         stripped_log
     }
 
-    fn assert_log(temp_file: &TempFilepath, expected: &str) {
-        let stripped_log = read_log_strip_source_info(temp_file);
+    fn assert_log(log: String, expected: &str) {
+        let stripped_log = read_log_strip_source_info(log);
 
         assert_eq!(stripped_log, expected);
     }
 
     #[test]
     fn test_ddbg_file_and_line_number() {
-        let temp_file: TempFilepath = temp_filepath();
+        let temp_file: TempFilepath = TempFilepath::new();
         let filepath: &'static str = make_static!(temp_file.filepath);
 
         ddbg!(filepath, "test");
@@ -172,17 +285,17 @@ mod test {
 
     #[test]
     fn test_ddbg_simple() {
-        let temp_file: TempFilepath = temp_filepath();
+        let temp_file: TempFilepath = TempFilepath::new();
         let filepath: &'static str = make_static!(temp_file.filepath);
 
         ddbg!(filepath, "numbers={:?}", [1, 2, 3]);
 
-        assert_log(&temp_file, "numbers=[1, 2, 3]\n");
+        assert_log(temp_file.read(), "numbers=[1, 2, 3]\n");
     }
 
     #[test]
     fn test_ddbg_multiple_syntaxes() {
-        let temp_file: TempFilepath = temp_filepath();
+        let temp_file: TempFilepath = TempFilepath::new();
         let filepath: &'static str = make_static!(temp_file.filepath);
 
         ddbg!(filepath, "nothing to format");
@@ -200,12 +313,12 @@ mod test {
             "#
         };
 
-        assert_log(&temp_file, expected);
+        assert_log(temp_file.read(), expected);
     }
 
     #[test]
     fn test_ddbg_file_append() {
-        let temp_file: TempFilepath = temp_filepath();
+        let temp_file: TempFilepath = TempFilepath::new();
         let filepath: &'static str = make_static!(temp_file.filepath);
 
         std::fs::write(filepath, "[file.rs:23] first\n").unwrap();
@@ -218,12 +331,12 @@ mod test {
             "#
         };
 
-        assert_log(&temp_file, expected);
+        assert_log(temp_file.read(), expected);
     }
 
     #[test]
     fn test_ddbg_multiline() {
-        let temp_file: TempFilepath = temp_filepath();
+        let temp_file: TempFilepath = TempFilepath::new();
         let filepath: &'static str = make_static!(temp_file.filepath);
 
         ddbg!(filepath, "This log\nmessage\nspans multiple lines!");
@@ -235,17 +348,17 @@ mod test {
             "#
         };
 
-        assert_log(&temp_file, expected);
+        assert_log(temp_file.read(), expected);
     }
 
     #[test]
     fn test_ddbg_uri_scheme_file() {
-        let temp_file: TempFilepath = temp_filepath();
+        let temp_file: TempFilepath = TempFilepath::new();
         let filepath: &'static str = make_static!(format!("file://{}", temp_file.filepath));
 
         ddbg!(filepath, "test!");
 
-        assert_log(&temp_file, "test!\n");
+        assert_log(temp_file.read(), "test!\n");
     }
 
     #[test]
@@ -257,7 +370,7 @@ mod test {
         const ITERATIONS: usize = 1000;
         const REPETITIONS: usize = 1000;
 
-        let temp_file: TempFilepath = temp_filepath();
+        let temp_file: TempFilepath = TempFilepath::new();
         let filepath: &'static str = make_static!(temp_file.filepath);
         let mut threads: Vec<JoinHandle<()>> = Vec::with_capacity(THREAD_NUM);
 
@@ -283,7 +396,7 @@ mod test {
             }
         }
 
-        let log = read_log_strip_source_info(&temp_file);
+        let log = read_log_strip_source_info(temp_file.read());
 
         for line in log.lines() {
             let token = line.splitn(2, "_").next().unwrap();
@@ -298,5 +411,38 @@ mod test {
         }
 
         assert!(lines_added.is_empty());
+    }
+
+    #[test]
+    fn test_ddbg_uri_scheme_tcp_hostname() {
+        let tcp_listener: Listener = Listener::new();
+        let uri: &'static str = make_static!(format!("tcp://localhost:{}", tcp_listener.port));
+
+        ddbg!(uri, "test hostname!");
+        ddbg!(uri, "==EOF==");
+
+        assert_log(tcp_listener.content(), "test hostname!\n==EOF==\n");
+    }
+
+    #[test]
+    fn test_ddbg_uri_scheme_tcp_ipv4() {
+        let tcp_listener: Listener = Listener::new();
+        let uri: &'static str = make_static!(format!("tcp://127.0.0.1:{}", tcp_listener.port));
+
+        ddbg!(uri, "test ipv4!");
+        ddbg!(uri, "==EOF==");
+
+        assert_log(tcp_listener.content(), "test ipv4!\n==EOF==\n");
+    }
+
+    #[test]
+    fn test_ddbg_uri_scheme_tcp_ipv6() {
+        let tcp_listener: Listener = Listener::new_with_bind("::1");
+        let uri: &'static str = make_static!(format!("tcp://[::1]:{}", tcp_listener.port));
+
+        ddbg!(uri, "test ipv6!");
+        ddbg!(uri, "==EOF==");
+
+        assert_log(tcp_listener.content(), "test ipv6!\n==EOF==\n");
     }
 }
