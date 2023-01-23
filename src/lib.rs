@@ -7,6 +7,7 @@
 #![deny(clippy::correctness)]
 #![warn(clippy::pedantic)]
 #![allow(clippy::inline_always)]
+#![allow(clippy::match_bool)]
 // Note: If you change this remember to update `README.md`.  To do so run `cargo rdme`.
 //! `dirty-debug` offers a quick and easy way to log message to a file (or tcp endpoint) for
 //! temporary debugging.
@@ -157,7 +158,7 @@ pub fn dirty_log_message(uri: &'static str, args: fmt::Arguments<'_>) {
     };
 
     if let Err(e) = result {
-        panic!("failed to log to \"{}\": {}", uri, e);
+        panic!("failed to log to \"{uri}\": {e}");
     }
 }
 
@@ -168,6 +169,7 @@ mod test {
     use std::io::Read;
     use std::net::TcpStream;
     use std::thread::JoinHandle;
+    use std::usize;
 
     struct TempFilepath {
         filepath: String,
@@ -183,7 +185,7 @@ mod test {
             let filename: String =
                 thread_rng().sample_iter(&Alphanumeric).take(30).map(char::from).collect();
 
-            let filepath = dir.join(format!("dirty_debug_test_{}", filename)).display().to_string();
+            let filepath = dir.join(format!("dirty_debug_test_{filename}")).display().to_string();
 
             TempFilepath { filepath }
         }
@@ -195,7 +197,7 @@ mod test {
 
     impl Drop for TempFilepath {
         fn drop(&mut self) {
-            let _ = std::fs::remove_file(&self.filepath);
+            let _result = std::fs::remove_file(&self.filepath);
         }
     }
 
@@ -214,7 +216,7 @@ mod test {
             use std::thread::spawn;
 
             let listener: TcpListener =
-                TcpListener::bind(format!("{}:0", bind)).expect("fail to bind");
+                TcpListener::bind(format!("{bind}:0")).expect("fail to bind");
 
             let port: u16 = listener.local_addr().unwrap().port();
 
@@ -250,12 +252,12 @@ mod test {
         }};
     }
 
-    fn read_log_strip_source_info(log: String) -> String {
+    fn read_log_strip_source_info(log: &str) -> String {
         let mut stripped_log = String::with_capacity(log.len());
 
         for line in log.lines() {
             let stripped = match line.starts_with('[') {
-                true => line.splitn(2, " ").skip(1).next().unwrap_or(""),
+                true => line.split_once(' ').map_or("", |(_, s)| s),
                 false => line,
             };
 
@@ -266,7 +268,7 @@ mod test {
         stripped_log
     }
 
-    fn assert_log(log: String, expected: &str) {
+    fn assert_log(log: &str, expected: &str) {
         let stripped_log = read_log_strip_source_info(log);
 
         assert_eq!(stripped_log, expected);
@@ -280,7 +282,7 @@ mod test {
         ddbg!(filepath, "test");
         let line = line!() - 1;
 
-        assert_eq!(temp_file.read(), format!("[{}:{}] test\n", file!(), line));
+        assert_eq!(temp_file.read(), format!("[{}:{line}] test\n", file!()));
     }
 
     #[test]
@@ -290,7 +292,7 @@ mod test {
 
         ddbg!(filepath, "numbers={:?}", [1, 2, 3]);
 
-        assert_log(temp_file.read(), "numbers=[1, 2, 3]\n");
+        assert_log(&temp_file.read(), "numbers=[1, 2, 3]\n");
     }
 
     #[test]
@@ -313,7 +315,7 @@ mod test {
             "#
         };
 
-        assert_log(temp_file.read(), expected);
+        assert_log(&temp_file.read(), expected);
     }
 
     #[test]
@@ -331,7 +333,7 @@ mod test {
             "#
         };
 
-        assert_log(temp_file.read(), expected);
+        assert_log(&temp_file.read(), expected);
     }
 
     #[test]
@@ -348,7 +350,7 @@ mod test {
             "#
         };
 
-        assert_log(temp_file.read(), expected);
+        assert_log(&temp_file.read(), expected);
     }
 
     #[test]
@@ -358,7 +360,7 @@ mod test {
 
         ddbg!(filepath, "test!");
 
-        assert_log(temp_file.read(), "test!\n");
+        assert_log(&temp_file.read(), "test!\n");
     }
 
     #[test]
@@ -377,7 +379,7 @@ mod test {
         for i in 0..THREAD_NUM {
             let thread = spawn(move || {
                 for j in 0..ITERATIONS {
-                    ddbg!(filepath, "{}", format!("{}:{}_", i, j).repeat(REPETITIONS));
+                    ddbg!(filepath, "{}", format!("{i}:{j}_").repeat(REPETITIONS));
                 }
             });
 
@@ -388,22 +390,23 @@ mod test {
             thread.join().unwrap();
         }
 
-        let mut lines_added: HashSet<(u16, u16)> = HashSet::with_capacity(THREAD_NUM * ITERATIONS);
+        let mut lines_added: HashSet<(usize, usize)> =
+            HashSet::with_capacity(THREAD_NUM * ITERATIONS);
 
         for i in 0..THREAD_NUM {
             for j in 0..ITERATIONS {
-                lines_added.insert((i as u16, j as u16));
+                lines_added.insert((i, j));
             }
         }
 
-        let log = read_log_strip_source_info(temp_file.read());
+        let log = read_log_strip_source_info(&temp_file.read());
 
         for line in log.lines() {
-            let token = line.splitn(2, "_").next().unwrap();
-            let mut iter = token.split(":");
-            let i = u16::from_str(iter.next().unwrap()).unwrap();
-            let j = u16::from_str(iter.next().unwrap()).unwrap();
-            let expected = format!("{}:{}_", i, j).repeat(REPETITIONS);
+            let token = line.split('_').next().unwrap();
+            let mut iter = token.split(':');
+            let i = usize::from_str(iter.next().unwrap()).unwrap();
+            let j = usize::from_str(iter.next().unwrap()).unwrap();
+            let expected = format!("{i}:{j}_").repeat(REPETITIONS);
 
             assert_eq!(line, expected);
 
@@ -421,7 +424,7 @@ mod test {
         ddbg!(uri, "test hostname!");
         ddbg!(uri, "==EOF==");
 
-        assert_log(tcp_listener.content(), "test hostname!\n==EOF==\n");
+        assert_log(&tcp_listener.content(), "test hostname!\n==EOF==\n");
     }
 
     #[test]
@@ -432,7 +435,7 @@ mod test {
         ddbg!(uri, "test ipv4!");
         ddbg!(uri, "==EOF==");
 
-        assert_log(tcp_listener.content(), "test ipv4!\n==EOF==\n");
+        assert_log(&tcp_listener.content(), "test ipv4!\n==EOF==\n");
     }
 
     #[test]
@@ -443,6 +446,6 @@ mod test {
         ddbg!(uri, "test ipv6!");
         ddbg!(uri, "==EOF==");
 
-        assert_log(tcp_listener.content(), "test ipv6!\n==EOF==\n");
+        assert_log(&tcp_listener.content(), "test ipv6!\n==EOF==\n");
     }
 }
