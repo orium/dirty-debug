@@ -5,6 +5,7 @@ version = "0.2.1-pre"
 authors = ["Diogo Sousa <diogogsousa@gmail.com>"]
 
 edition = "2021"
+rust-version = "1.59.0"
 
 homepage = "https://github.com/orium/dirty-debug"
 repository = "https://github.com/orium/dirty-debug"
@@ -17,6 +18,7 @@ keywords = [
 
 categories = [
     "development-tools",
+    "development-tools::debugging",
 ]
 
 license = "MPL-2.0"
@@ -42,4 +44,4 @@ dashmap = "5.4.0"
 
 [dev-dependencies]
 rand = "0.8.1"
-indoc = "1.0.7"
+indoc = "2.0.3"
