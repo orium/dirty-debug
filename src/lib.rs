@@ -4,10 +4,6 @@
  */
 
 #![cfg_attr(feature = "fatal-warnings", deny(warnings))]
-#![deny(clippy::correctness)]
-#![warn(clippy::pedantic)]
-#![allow(clippy::inline_always)]
-#![allow(clippy::match_bool)]
 // Note: If you change this remember to update `README.md`.  To do so run `cargo rdme`.
 //! `dirty-debug` offers a quick and easy way to log message to a file (or tcp endpoint) for
 //! temporary debugging.

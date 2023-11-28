@@ -45,3 +45,12 @@ dashmap = "5.4.0"
 [dev-dependencies]
 rand = "0.8.1"
 indoc = "2.0.3"
+
+[lints.clippy]
+all = { level = "warn", priority = -1 }
+pedantic = { level = "warn", priority = -1 }
+correctness = "deny"
+
+inline-always = "allow"
+match-bool = "allow"
+needless-raw-string-hashes = "allow"
