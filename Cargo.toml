@@ -5,7 +5,7 @@ version = "0.2.1-pre"
 authors = ["Diogo Sousa <diogogsousa@gmail.com>"]
 
 edition = "2021"
-rust-version = "1.59.0"
+rust-version = "1.80.0"
 
 homepage = "https://github.com/orium/dirty-debug"
 repository = "https://github.com/orium/dirty-debug"
@@ -39,17 +39,16 @@ codecov = { repository = "orium/dirty-debug", branch = "main", service = "github
 fatal-warnings = []
 
 [dependencies]
-once_cell = "1.15.0"
-dashmap = "5.4.0"
+dashmap = "5.5.0"
 
 [dev-dependencies]
-rand = "0.8.1"
+rand = "0.8.5"
 indoc = "2.0.3"
 
 [lints.clippy]
-all = { level = "warn", priority = -1 }
-pedantic = { level = "warn", priority = -1 }
-correctness = "deny"
+all = { level = "warn", priority = -2 }
+pedantic = { level = "warn", priority = -2 }
+correctness = { level = "deny", priority = -1 }
 
 inline-always = "allow"
 match-bool = "allow"

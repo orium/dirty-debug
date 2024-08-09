@@ -47,17 +47,17 @@
 //! ```
 
 use dashmap::DashMap;
-use once_cell::sync::Lazy;
 use std::fmt;
 use std::fs::File;
 use std::io;
 use std::io::Write;
 use std::net::TcpStream;
 use std::str::FromStr;
+use std::sync::LazyLock;
 
-static DIRTY_FILES: Lazy<DashMap<&str, File>> = Lazy::new(DashMap::new);
+static DIRTY_FILES: LazyLock<DashMap<&str, File>> = LazyLock::new(DashMap::new);
 
-static DIRTY_TCP: Lazy<DashMap<(&str, u16), TcpStream>> = Lazy::new(DashMap::new);
+static DIRTY_TCP: LazyLock<DashMap<(&str, u16), TcpStream>> = LazyLock::new(DashMap::new);
 
 /// Writes a message to the given location.  The message will be formatted.
 ///
@@ -165,7 +165,6 @@ mod test {
     use std::io::Read;
     use std::net::TcpStream;
     use std::thread::JoinHandle;
-    use std::usize;
 
     struct TempFilepath {
         filepath: String,
@@ -242,7 +241,7 @@ mod test {
     /// needs to be a string with a static lifetime to allow it to be stored without cloning it.
     macro_rules! make_static {
         ($str:expr) => {{
-            static CELL: ::once_cell::sync::OnceCell<String> = ::once_cell::sync::OnceCell::new();
+            static CELL: ::std::sync::OnceLock<String> = ::std::sync::OnceLock::new();
             CELL.set($str.to_owned()).unwrap();
             CELL.get().unwrap().as_str()
         }};
