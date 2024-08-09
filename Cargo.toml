@@ -39,7 +39,7 @@ codecov = { repository = "orium/dirty-debug", branch = "main", service = "github
 fatal-warnings = []
 
 [dependencies]
-dashmap = "5.5.0"
+dashmap = "6.0.1"
 
 [dev-dependencies]
 rand = "0.8.5"
