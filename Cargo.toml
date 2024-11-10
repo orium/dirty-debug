@@ -12,25 +12,14 @@ repository = "https://github.com/orium/dirty-debug"
 documentation = "https://docs.rs/dirty-debug"
 readme = "README.md"
 
-keywords = [
-    "debug",
-]
+keywords = ["debug"]
 
-categories = [
-    "development-tools",
-    "development-tools::debugging",
-]
+categories = ["development-tools", "development-tools::debugging"]
 
 license = "MPL-2.0"
 
 # What to include when packaging.
-include = [
-    "/src/**/*.rs",
-    "/Cargo.toml",
-    "/LICENSE.md",
-    "/README.md",
-    "/release-notes.md",
-]
+include = ["/src/**/*.rs", "/Cargo.toml", "/LICENSE.md", "/README.md", "/release-notes.md"]
 
 [badges]
 codecov = { repository = "orium/dirty-debug", branch = "main", service = "github" }
@@ -42,13 +31,13 @@ fatal-warnings = []
 dashmap = "6.0.1"
 
 [dev-dependencies]
-rand = "0.8.5"
 indoc = "2.0.3"
+rand = "0.8.5"
 
 [lints.clippy]
 all = { level = "warn", priority = -2 }
-pedantic = { level = "warn", priority = -2 }
 correctness = { level = "deny", priority = -1 }
+pedantic = { level = "warn", priority = -2 }
 
 inline-always = "allow"
 match-bool = "allow"
