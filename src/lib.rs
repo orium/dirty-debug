@@ -172,13 +172,12 @@ mod test {
 
     impl TempFilepath {
         fn new() -> TempFilepath {
-            use rand::distributions::Alphanumeric;
-            use rand::thread_rng;
+            use rand::distr::Alphanumeric;
             use rand::Rng;
 
             let dir = std::env::temp_dir();
             let filename: String =
-                thread_rng().sample_iter(&Alphanumeric).take(30).map(char::from).collect();
+                rand::rng().sample_iter(&Alphanumeric).take(30).map(char::from).collect();
 
             let filepath = dir.join(format!("dirty_debug_test_{filename}")).display().to_string();
 
