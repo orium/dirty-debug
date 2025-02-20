@@ -172,8 +172,8 @@ mod test {
 
     impl TempFilepath {
         fn new() -> TempFilepath {
-            use rand::distr::Alphanumeric;
             use rand::Rng;
+            use rand::distr::Alphanumeric;
 
             let dir = std::env::temp_dir();
             let filename: String =
@@ -360,7 +360,7 @@ mod test {
     #[test]
     fn test_ddbg_multithread_no_corrupted_lines() {
         use std::str::FromStr;
-        use std::thread::{spawn, JoinHandle};
+        use std::thread::{JoinHandle, spawn};
 
         const THREAD_NUM: usize = 20;
         const ITERATIONS: usize = 1000;
