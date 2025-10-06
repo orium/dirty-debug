@@ -1,7 +1,7 @@
 [package]
 name = "dirty-debug"
 description = "Quick and dirty debugging"
-version = "1.0.1"
+version = "1.0.2-pre"
 authors = ["Diogo Sousa <diogogsousa@gmail.com>"]
 
 edition = "2024"
