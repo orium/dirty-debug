@@ -1,5 +1,10 @@
 # Release notes
 
+## 1.0.1
+
+* Relicensed project under the MIT license.
+* Update dependencies.
+
 ## 1.0.0
 
 * Use stdlib `LazyLock` instead of `once_cell`.
