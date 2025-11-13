@@ -24,9 +24,6 @@ include = ["/src/**/*.rs", "/Cargo.toml", "/LICENSE.md", "/README.md", "/release
 [badges]
 codecov = { repository = "orium/dirty-debug", branch = "main", service = "github" }
 
-[features]
-fatal-warnings = []
-
 [dependencies]
 dashmap = "6.1.0"
 

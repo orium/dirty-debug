@@ -1,11 +1,10 @@
-#![cfg_attr(feature = "fatal-warnings", deny(warnings))]
-// Note: If you change this remember to update `README.md`.  To do so run `cargo rdme`.
+// Note: If you change this remember to update `README.md`. To do so run `cargo rdme`.
 //! `dirty-debug` offers a quick and easy way to log message to a file (or tcp endpoint) for
 //! temporary debugging.
 //!
 //! A simple but powerful way to debug a program is to printing some messages to understand your
-//! code’s behavior.  However, sometimes you don’t have access to the `stdout`/`stderr` streams (for
-//! instance, when your code is loaded and executed by another program).  `dirty-debug` offers you a
+//! code’s behavior. However, sometimes you don’t have access to the `stdout`/`stderr` streams (for
+//! instance, when your code is loaded and executed by another program). `dirty-debug` offers you a
 //! simple, no-setup, way to log to a file:
 //!
 //! ```rust,no_run
@@ -13,10 +12,10 @@
 //! #
 //! # let state = 42;
 //! #
-//! ddbg!("/tmp/debug_log", "Control reached here.  State={}", state);
+//! ddbg!("/tmp/debug_log", "Control reached here. State={}", state);
 //! ```
 //!
-//! It’s as simple as that.  Every time you call [`ddbg!()`](crate::ddbg) you will append the debug
+//! It’s as simple as that. Every time you call [`ddbg!()`](crate::ddbg) you will append the debug
 //! message to that file, together with the filename and line number of the source code’s location.
 //!
 //! Note that this is not meant to be a normal form of logging: `dirty-debug` should only be used
@@ -54,7 +53,7 @@ static DIRTY_FILES: LazyLock<DashMap<&str, File>> = LazyLock::new(DashMap::new);
 
 static DIRTY_TCP: LazyLock<DashMap<(&str, u16), TcpStream>> = LazyLock::new(DashMap::new);
 
-/// Writes a message to the given location.  The message will be formatted.
+/// Writes a message to the given location. The message will be formatted.
 ///
 /// # Example — Logging to a file
 ///
@@ -129,7 +128,7 @@ fn dirty_log_str_tcp(
     dirty_log_str_writer(stream, args)
 }
 
-/// Logs the given message.  The `uri` is a string with a static lifetime, so that it can be stored
+/// Logs the given message. The `uri` is a string with a static lifetime, so that it can be stored
 /// without cloning, to avoid extra memory allocations.
 #[doc(hidden)]
 pub fn dirty_log_message(uri: &'static str, args: fmt::Arguments<'_>) {
@@ -231,7 +230,7 @@ mod test {
         }
     }
 
-    /// Creates a `&'static str` out of any string.  This is important because the uri in `ddbg!()`
+    /// Creates a `&'static str` out of any string. This is important because the uri in `ddbg!()`
     /// needs to be a string with a static lifetime to allow it to be stored without cloning it.
     macro_rules! make_static {
         ($str:expr) => {{

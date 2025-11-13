@@ -15,15 +15,15 @@
 temporary debugging.
 
 A simple but powerful way to debug a program is to printing some messages to understand your
-code’s behavior.  However, sometimes you don’t have access to the `stdout`/`stderr` streams (for
-instance, when your code is loaded and executed by another program).  `dirty-debug` offers you a
+code’s behavior. However, sometimes you don’t have access to the `stdout`/`stderr` streams (for
+instance, when your code is loaded and executed by another program). `dirty-debug` offers you a
 simple, no-setup, way to log to a file:
 
 ```rust
-ddbg!("/tmp/debug_log", "Control reached here.  State={}", state);
+ddbg!("/tmp/debug_log", "Control reached here. State={}", state);
 ```
 
-It’s as simple as that.  Every time you call [`ddbg!()`](https://docs.rs/dirty-debug/latest/dirty_debug/macro.ddbg.html) you will append the debug
+It’s as simple as that. Every time you call [`ddbg!()`](https://docs.rs/dirty-debug/latest/dirty_debug/macro.ddbg.html) you will append the debug
 message to that file, together with the filename and line number of the source code’s location.
 
 Note that this is not meant to be a normal form of logging: `dirty-debug` should only be used
