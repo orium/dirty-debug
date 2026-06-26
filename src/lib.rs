@@ -166,7 +166,7 @@ mod test {
 
     impl TempFilepath {
         fn new() -> TempFilepath {
-            use rand::Rng;
+            use rand::RngExt;
             use rand::distr::Alphanumeric;
 
             let dir = std::env::temp_dir();
