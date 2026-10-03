@@ -36,6 +36,6 @@ all = { level = "warn", priority = -2 }
 correctness = { level = "deny", priority = -1 }
 pedantic = { level = "warn", priority = -2 }
 
-inline-always = "allow"
-match-bool = "allow"
-needless-raw-string-hashes = "allow"
+inline_always = "allow"
+match_bool = "allow"
+needless_raw_string_hashes = "allow"
