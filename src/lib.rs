@@ -15,8 +15,8 @@
 //! ddbg!("/tmp/debug_log", "Control reached here. State={}", state);
 //! ```
 //!
-//! It’s as simple as that. Every time you call [`ddbg!()`](crate::ddbg) you will append the debug
-//! message to that file, together with the filename and line number of the source code’s location.
+//! It’s as simple as that. Every time you call [`ddbg!()`] you will append the debug message to
+//! that file, together with the filename and line number of the source code’s location.
 //!
 //! Note that this is not meant to be a normal form of logging: `dirty-debug` should only be used
 //! temporarily during your debug session and discarded after that.
